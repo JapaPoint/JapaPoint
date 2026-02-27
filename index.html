@@ -1159,13 +1159,36 @@
       window.refreshIcons();
     };
 
+    window.isStoreOpen = () => {
+      const h = new Date().getHours();
+      const st = state.config.statusMode || 'auto';
+      const hours = state.config.openingHours || { start: 13, end: 23 };
+      return st === 'open' || (st === 'auto' && h >= hours.start && h < hours.end);
+    };
+
     window.validateCheckout = () => {
       const btn = document.getElementById('btn-checkout');
-      const ok = state.cart.length > 0 && document.getElementById('client-name').value.trim() && document.getElementById('client-phone').value.trim().length >= 10 && document.getElementById('payment-method').value;
-      btn.disabled = !ok;
+      const btnText = btn.querySelector('span');
+      const isOpen = window.isStoreOpen();
+
+      const formOk = state.cart.length > 0 &&
+        document.getElementById('client-name').value.trim() &&
+        document.getElementById('client-phone').value.trim().length >= 10 &&
+        document.getElementById('payment-method').value;
+
+      if (!isOpen) {
+        btn.disabled = true;
+        btn.className = "w-full py-5 rounded-2xl bg-slate-200 text-slate-400 font-black text-sm shadow-none flex items-center justify-center gap-3 cursor-not-allowed opacity-80";
+        if (btnText) btnText.innerText = "LOJA FECHADA AGORA";
+      } else {
+        btn.disabled = !formOk;
+        btn.className = `w-full py-5 rounded-2xl bg-gradient-to-r from-whatsapp-500 to-whatsapp-600 text-white font-black text-sm shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95 disabled:opacity-50 disabled:grayscale`;
+        if (btnText) btnText.innerText = "Finalizar no WhatsApp";
+      }
     };
 
     window.sendOrder = async () => {
+      if (!window.isStoreOpen()) return window.toast("Loja fechada no momento!", "error");
       const name = document.getElementById('client-name').value;
       const phone = document.getElementById('client-phone').value;
       const payment = document.getElementById('payment-method').value;
@@ -1268,10 +1291,8 @@
 
 
     window.updateUI = () => {
-      const h = new Date().getHours();
-      const st = state.config.statusMode || 'auto';
-      const hours = state.config.openingHours || { start: 13, end: 23 };
-      const open = st === 'open' || (st === 'auto' && h >= hours.start && h < hours.end);
+      const open = window.isStoreOpen();
+      window.validateCheckout();
 
       const indicator = document.getElementById('status-indicator');
       const text = document.getElementById('status-text');
