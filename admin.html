@@ -264,10 +264,16 @@
                     <div id="view-pedidos" class="space-y-6 animate-slide-up">
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div class="col-span-2 space-y-4">
-                                <h3
-                                    class="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-                                    <i data-lucide="timer" class="w-3.5 h-3.5"></i> Pedidos em Espera
-                                </h3>
+                                <div class="flex items-center justify-between mb-4">
+                                    <h3
+                                        class="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                                        <i data-lucide="timer" class="w-3.5 h-3.5"></i> Pedidos em Espera
+                                    </h3>
+                                    <button onclick="window.clearAllOrders()"
+                                        class="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-100 transition-all active:scale-95 shadow-sm">
+                                        <i data-lucide="eraser" class="w-3.5 h-3.5"></i> Limpar Histórico
+                                    </button>
+                                </div>
                                 <div id="admin-orders-list" class="space-y-4">
                                     <div class="dashboard-card p-12 text-center">
                                         <i data-lucide="inbox" class="w-12 h-12 text-slate-200 mx-auto mb-4"></i>
@@ -579,7 +585,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, doc, setDoc, updateDoc, collection, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, updateDoc, deleteDoc, collection, query, orderBy, onSnapshot, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
         const myFirebaseConfig = {
@@ -746,11 +752,16 @@
                                 list.innerHTML += `
                                     <div class="dashboard-card p-6 overflow-hidden relative group">
                                         <div class="flex justify-between items-start mb-4">
-                                            <div class="flex items-center gap-3">
+                                            <div class="flex items-center gap-2">
                                                 <div class="px-3 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-widest ${stColor}">${pd.status}</div>
                                                 <span class="text-[10px] text-slate-400 font-black">${timeStr}</span>
                                             </div>
-                                            <span class="font-display font-black text-xl text-brand-700">${pd.total}</span>
+                                            <div class="flex items-center gap-3">
+                                                <span class="font-display font-black text-xl text-brand-700">${pd.total}</span>
+                                                <button onclick="window.deleteOrder('${id}')" title="Excluir Pedido" class="p-2 text-slate-300 hover:text-red-500 transition-colors">
+                                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                                </button>
+                                            </div>
                                         </div>
                                         <div class="mb-4">
                                             <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Cliente</p>
@@ -1041,6 +1052,28 @@
         window.acceptOrder = async (orderId) => {
             await updateDoc(doc(db, "pedidos", orderId), { status: 'aceito' });
             window.toast("Pedido emPreparação!");
+        };
+
+        window.deleteOrder = async (orderId) => {
+            if (confirm("Deseja apagar este pedido do histórico?")) {
+                try {
+                    await deleteDoc(doc(db, "pedidos", orderId));
+                    window.toast("Pedido removido.");
+                } catch (e) { window.toast("Erro ao apagar.", "error"); }
+            }
+        };
+
+        window.clearAllOrders = async () => {
+            if (confirm("LIMPAR TUDO? Isso apagará todos os pedidos permanentemente.")) {
+                try {
+                    const snap = await getDocs(collection(db, "pedidos"));
+                    if (snap.empty) return window.toast("Nada para limpar.");
+                    const batch = writeBatch(db);
+                    snap.forEach(d => batch.delete(d.ref));
+                    await batch.commit();
+                    window.toast("Histórico limpo!");
+                } catch (e) { window.toast("Erro ao limpar.", "error"); }
+            }
         };
 
         // CONFIG & STATUS
