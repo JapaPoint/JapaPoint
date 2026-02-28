@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 
 <head>
@@ -119,26 +119,22 @@
 
         @media print {
             @page {
-                size: 75mm auto;
+                size: 80mm auto;
                 margin: 0;
             }
 
-            body * {
-                visibility: hidden;
-            }
-
-            #print-receipt,
-            #print-receipt * {
-                visibility: visible;
+            body>*:not(#print-receipt) {
+                display: none !important;
             }
 
             #print-receipt {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 75mm;
-                padding: 0 2mm;
+                display: block !important;
+                position: relative !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
                 margin: 0;
+                padding: 4mm;
                 box-sizing: border-box;
                 font-family: 'Courier New', Courier, monospace;
                 font-size: 12px;
@@ -636,32 +632,65 @@
                                     class="w-full py-4 bg-brand-100 text-brand-700 rounded-2xl font-black text-xs uppercase tracking-widest">Adicionar
                                     Zona de Entrega</button>
 
-                                <div id="admin-zones-list" class="space-y-2 mt-6"></div>
+                            </div>
+                        </div>
+
+                        <!-- Deliverers Section -->
+                        <div class="dashboard-card p-8">
+                            <h3 class="font-display font-medium text-lg text-brand-900 mb-6 flex items-center gap-3">
+                                <i data-lucide="bike" class="w-5 h-5 text-brand-400"></i> Entregadores
+                            </h3>
+                            <div class="space-y-4">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <input id="new-deliverer-name" placeholder="Nome do Entregador"
+                                        title="Nome do Entregador"
+                                        class="bg-slate-50 p-4 rounded-2xl text-sm font-bold border border-slate-100 outline-none focus:bg-white focus:border-brand-200 transition-all">
+                                    <input id="new-deliverer-phone" placeholder="WhatsApp (ex: 5579...)"
+                                        title="WhatsApp do Entregador"
+                                        class="bg-slate-50 p-4 rounded-2xl text-sm font-bold border border-slate-100 outline-none focus:bg-white focus:border-brand-200 transition-all">
+                                </div>
+                                <button onclick="window.addDeliverer()"
+                                    class="w-full py-4 bg-brand-100 text-brand-700 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-brand-200 transition-all">Adicionar
+                                    Entregador</button>
+                                <div id="admin-deliverers-list" class="space-y-2 mt-4"></div>
                             </div>
                         </div>
                     </div>
-
                 </div>
-            </div>
-        </main>
 
-        <!-- Bottom Tab Bar (Mobile Only) -->
-        <div
-            class="sm:hidden glass px-6 py-4 flex justify-around items-center border-t border-slate-100 safe-pb shrink-0">
-            <button onclick="window.switchAdminTab('pedidos')" class="flex flex-col items-center gap-1 group">
-                <i data-lucide="shopping-cart" class="w-5 h-5 text-brand-700"></i>
-                <span class="text-[8px] font-black uppercase tracking-widest text-brand-700">Pedidos</span>
-            </button>
-            <button onclick="window.switchAdminTab('estoque')"
-                class="flex flex-col items-center gap-1 group opacity-40">
-                <i data-lucide="package" class="w-5 h-5 text-slate-400"></i>
-                <span class="text-[8px] font-black uppercase tracking-widest text-slate-400">Menu</span>
-            </button>
-            <button onclick="window.switchAdminTab('config')" class="flex flex-col items-center gap-1 group opacity-40">
-                <i data-lucide="settings" class="w-5 h-5 text-slate-400"></i>
-                <span class="text-[8px] font-black uppercase tracking-widest text-slate-400">Loja</span>
-            </button>
+            </div>
+    </div>
+    </main>
+
+    <!-- Bottom Tab Bar (Mobile Only) -->
+    <div class="sm:hidden glass px-6 py-4 flex justify-around items-center border-t border-slate-100 safe-pb shrink-0">
+        <button onclick="window.switchAdminTab('pedidos')" class="flex flex-col items-center gap-1 group">
+            <i data-lucide="shopping-cart" class="w-5 h-5 text-brand-700"></i>
+            <span class="text-[8px] font-black uppercase tracking-widest text-brand-700">Pedidos</span>
+        </button>
+        <button onclick="window.switchAdminTab('estoque')" class="flex flex-col items-center gap-1 group opacity-40">
+            <i data-lucide="package" class="w-5 h-5 text-slate-400"></i>
+            <span class="text-[8px] font-black uppercase tracking-widest text-slate-400">Menu</span>
+        </button>
+        <button onclick="window.switchAdminTab('config')" class="flex flex-col items-center gap-1 group opacity-40">
+            <i data-lucide="settings" class="w-5 h-5 text-slate-400"></i>
+            <span class="text-[8px] font-black uppercase tracking-widest text-slate-400">Loja</span>
+        </button>
+    </div>
+
+    <!-- Dispatch Modal -->
+    <div id="dispatch-modal"
+        class="fixed inset-0 z-[300] bg-black/50 backdrop-blur-sm hidden items-center justify-center p-6">
+        <div class="bg-white w-full max-w-sm p-8 rounded-[2rem] shadow-2xl">
+            <h3 class="font-display font-black text-xl text-brand-900 mb-2">Despachar Pedido</h3>
+            <p class="text-xs text-slate-400 mb-6">Selecione o entregador para enviar os detalhes de entrega via
+                WhatsApp.</p>
+            <div id="dispatch-deliverers" class="space-y-3 mb-6"></div>
+            <button onclick="window.closeDispatchModal()"
+                class="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest">Cancelar</button>
         </div>
+    </div>
+
     </div>
 
     <script type="module">
@@ -722,7 +751,8 @@
                 { id: "CARDÁPIO DE AÇAÍ GOURMET", name: "AÇAÍ GOURMET" },
                 { id: "CARDÁPIO DE AÇAÍ GOURMET 2", name: "BARCAS & ROLETA" },
                 { id: "SORVETE E PICOLE", name: "SORVETE" }
-            ]
+            ],
+            deliverers: []
         };
 
         let state = { config: DEFAULT_CONFIG, isAdmin: false, currentTab: 'pedidos', knownOrders: new Set(), tempProductImage: null, editingProductIdx: null };
@@ -927,6 +957,7 @@
                         window.renderAdminPosts();
                         window.renderAdminHighlightsList();
                         window.renderAdminZones();
+                        window.renderAdminDeliverers();
                     });
 
                     // 3. Real-time Orders Sync
@@ -945,6 +976,8 @@
                                 const pd = docSnap.data();
                                 const id = docSnap.id;
                                 const isPendente = pd.status === 'pendente';
+                                const isPreparando = pd.status === 'preparando' || pd.status === 'aceito';
+                                const isSaiuEntrega = pd.status === 'saiu_entrega' || pd.status === 'pronto';
 
                                 // Check for NEW or PENDING orders
                                 if (isPendente) hasAnyPendente = true;
@@ -954,35 +987,48 @@
                                 }
 
                                 const timeStr = new Date(pd.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                                const stColor = isPendente ? 'bg-orange-50 text-orange-600 border-orange-100' : 'bg-japa-green/10 text-japa-green border-japa-green/20';
+
+                                let stColor = 'bg-slate-50 text-slate-500 border-slate-200';
+                                let displayStatus = pd.status;
+                                if (isPendente) { stColor = 'bg-orange-50 text-orange-600 border-orange-100'; displayStatus = 'pendente'; }
+                                else if (isPreparando) { stColor = 'bg-blue-50 text-blue-600 border-blue-100'; displayStatus = 'preparando'; }
+                                else if (isSaiuEntrega) { stColor = 'bg-japa-green/10 text-japa-green border-japa-green/20'; displayStatus = pd.deliveryType === 'Retirada' ? 'pronto' : 'saiu entrega'; }
 
                                 list.innerHTML += `
-                                    <div class="dashboard-card p-6 overflow-hidden relative group">
-                                        <div class="flex justify-between items-start mb-4">
-                                            <div class="flex items-center gap-2">
-                                                <div class="px-3 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-widest ${stColor}">${pd.status}</div>
-                                                <span class="text-[10px] text-slate-400 font-black">${timeStr}</span>
+                                        <div class="dashboard-card p-6 overflow-hidden relative group">
+                                            <div class="flex justify-between items-start mb-4">
+                                                <div class="flex items-center gap-2">
+                                                    <div class="px-3 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-widest ${stColor}">${displayStatus}</div>
+                                                    <span class="text-[10px] text-slate-400 font-black">${timeStr}</span>
+                                                </div>
+                                                <div class="flex items-center gap-3">
+                                                    <span class="font-display font-black text-xl text-brand-700">${pd.total}</span>
+                                                    <button onclick="window.printOrder(${JSON.stringify(pd).replace(/"/g, '&quot;')}, '${id}')" title="Imprimir Pedido" class="p-2 text-slate-300 hover:text-brand-700 transition-colors">
+                                                        <i data-lucide="printer" class="w-4 h-4"></i>
+                                                    </button>
+                                                    <button onclick="window.deleteOrder('${id}')" title="Excluir Pedido" class="p-2 text-slate-300 hover:text-red-500 transition-colors">
+                                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                                    </button>
+                                                </div>
                                             </div>
-                                            <div class="flex items-center gap-3">
-                                                <span class="font-display font-black text-xl text-brand-700">${pd.total}</span>
-                                                <button onclick="window.printOrder(${JSON.stringify(pd).replace(/"/g, '&quot;')}, '${id}')" title="Imprimir Pedido" class="p-2 text-slate-300 hover:text-brand-700 transition-colors">
-                                                    <i data-lucide="printer" class="w-4 h-4"></i>
-                                                </button>
-                                                <button onclick="window.deleteOrder('${id}')" title="Excluir Pedido" class="p-2 text-slate-300 hover:text-red-500 transition-colors">
-                                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
-                                                </button>
+                                            <div class="mb-4">
+                                                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Cliente</p>
+                                                <h4 class="text-sm font-black text-slate-800">${pd.clientName} <span class="font-bold text-brand-400 ml-1 opacity-60">${pd.phone}</span></h4>
+                                                <p class="text-[11px] text-slate-500 font-medium mt-1 select-all hover:text-brand-700 transition-colors"><i data-lucide="map-pin" class="w-3 h-3 inline mr-1 opacity-50"></i> ${pd.address}</p>
+                                                <p class="text-[10px] font-bold text-slate-400 uppercase mt-1">Tipo: <span class="text-brand-600">${pd.deliveryType || 'Entrega'}</span></p>
                                             </div>
-                                        </div>
-                                        <div class="mb-4">
-                                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Cliente</p>
-                                            <h4 class="text-sm font-black text-slate-800">${pd.clientName} <span class="font-bold text-brand-400 ml-1 opacity-60">${pd.phone}</span></h4>
-                                            <p class="text-[11px] text-slate-500 font-medium mt-1 select-all hover:text-brand-700 transition-colors"><i data-lucide="map-pin" class="w-3 h-3 inline mr-1 opacity-50"></i> ${pd.address}</p>
-                                        </div>
-                                        <div class="bg-brand-50/50 p-4 rounded-2xl border border-brand-100/50 mb-4 space-y-1.5">
-                                            ${pd.items.map(i => `<div class="flex justify-between"><p class="text-xs font-bold text-slate-700">● ${i.qty}x ${i.name}</p><p class="text-[10px] text-brand-400 italic">${i.obs || ''}</p></div>`).join('')}
-                                        </div>
-                                        ${isPendente ? `<button onclick="window.acceptOrder('${id}')" class="w-full py-4 bg-slate-900 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-xl hover:bg-brand-700 transition-all shadow-lg active:scale-95">Aceitar & Preparar</button>` : ''}
-                                    </div>`;
+                                            <div class="bg-brand-50/50 p-4 rounded-2xl border border-brand-100/50 mb-4 space-y-1.5">
+                                                ${pd.items.map(i => `<div class="flex justify-between"><p class="text-xs font-bold text-slate-700">● ${i.qty}x ${i.name}</p><p class="text-[10px] text-brand-400 italic">${i.obs || ''}</p></div>`).join('')}
+                                            </div>
+                                            
+                                            ${isPendente ? `<button onclick="window.acceptOrder('${id}', ${JSON.stringify(pd).replace(/"/g, '&quot;')})" class="w-full py-4 bg-slate-900 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-xl hover:bg-brand-700 transition-all shadow-lg active:scale-95 flex justify-center items-center gap-2"><i data-lucide="chef-hat" class="w-4 h-4"></i> Aceitar & Preparar</button>` : ''}
+                                            
+                                            ${isPreparando && pd.deliveryType === 'Entrega' ? `<button onclick="window.dispatchOrder('${id}', ${JSON.stringify(pd).replace(/"/g, '&quot;')})" title="Despachar para Entregador" class="w-full py-3.5 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-xl hover:bg-emerald-700 transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2"><i data-lucide="bike" class="w-4 h-4"></i> Despachar Entregador</button>` : ''}
+                                            
+                                            ${isPreparando && pd.deliveryType !== 'Entrega' ? `<button onclick="window.markAsReady('${id}', ${JSON.stringify(pd).replace(/"/g, '&quot;')})" title="Marcar como Pronto" class="w-full py-3.5 bg-japa-green text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-xl hover:bg-green-600 transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2"><i data-lucide="shopping-bag" class="w-4 h-4"></i> Marcar como Pronto</button>` : ''}
+                                            
+                                            ${isSaiuEntrega ? `<button onclick="window.notifyClient('saiu_entrega', ${JSON.stringify(pd).replace(/"/g, '&quot;')})" title="Avisar Cliente no WhatsApp" class="w-full mt-2 py-3 bg-[#25D366] text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-xl hover:bg-[#128C7E] transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2"><i data-lucide="message-circle" class="w-4 h-4 fill-white/20"></i> Avisar Cliente do Envio</button>` : ''}
+                                        </div>`;
                             });
                         }
 
@@ -1402,9 +1448,37 @@
             }
         };
 
-        window.acceptOrder = async (orderId) => {
-            await updateDoc(doc(db, "pedidos", orderId), { status: 'aceito' });
-            window.toast("Pedido emPreparação!");
+        window.notifyClient = (status, pd) => {
+            let msg = '';
+            const name = pd.clientName || 'Cliente';
+            if (status === 'preparando') {
+                msg = `Olá ${name}! 🎉 Seu pedido foi *aceito* e já está em preparação pelo nosso chef! 🧑‍🍳`;
+            } else if (status === 'saiu_entrega') {
+                const type = pd.deliveryType || 'Entrega';
+                if (type === 'Retirada') {
+                    msg = `Olá ${name}! 🛍️ Seu pedido já está *Pronto para Retirada*! Venha buscar quando quiser.`;
+                } else {
+                    msg = `Olá ${name}! 🛵 Seu pedido *saiu para entrega* e já está a caminho do seu endereço!`;
+                }
+            }
+            if (msg) {
+                const phone = (pd.phone || '').replace(/\D/g, '');
+                let finalPhone = phone;
+                if (finalPhone.length <= 11) finalPhone = '55' + finalPhone;
+                window.open(`https://wa.me/${finalPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+            }
+        }
+
+        window.acceptOrder = async (orderId, pd) => {
+            await updateDoc(doc(db, "pedidos", orderId), { status: 'preparando' });
+            if (pd) window.notifyClient('preparando', pd);
+            window.toast("Pedido em Preparação!");
+        };
+
+        window.markAsReady = async (orderId, pd) => {
+            await updateDoc(doc(db, "pedidos", orderId), { status: 'pronto' });
+            if (pd) window.notifyClient('saiu_entrega', pd);
+            window.toast("Marcado como Pronto!");
         };
 
         window.deleteOrder = async (orderId) => {
@@ -1414,6 +1488,108 @@
                     window.toast("Pedido removido.");
                 } catch (e) { window.toast("Erro ao apagar.", "error"); }
             }
+        };
+
+        // DELIVERERS
+        window.renderAdminDeliverers = () => {
+            const list = document.getElementById('admin-deliverers-list');
+            if (!list) return;
+            const deliverers = state.config.deliverers || [];
+            if (deliverers.length === 0) {
+                list.innerHTML = `<p class="text-center text-slate-300 text-xs font-bold py-4">Nenhum entregador cadastrado.</p>`;
+                return;
+            }
+            list.innerHTML = deliverers.map((d, idx) => `
+                <div class="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-xl shadow-sm">
+                    <div>
+                        <p class="text-[11px] font-black text-slate-700">${d.name}</p>
+                        <p class="text-[10px] text-slate-400 font-medium">${d.phone}</p>
+                    </div>
+                    <button onclick="window.removeDeliverer(${idx})" class="p-2 text-red-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                    </button>
+                </div>`).join('');
+            window.refreshIcons();
+        };
+
+        window.addDeliverer = () => {
+            const name = document.getElementById('new-deliverer-name').value.trim();
+            const phone = document.getElementById('new-deliverer-phone').value.trim();
+            if (!name || !phone) return window.toast("Preencha nome e WhatsApp!", "error");
+            const deliverers = [...(state.config.deliverers || []), { name, phone }];
+            window.saveConfigSafe({ deliverers }).then(() => {
+                window.toast("Entregador Adicionado!");
+                document.getElementById('new-deliverer-name').value = '';
+                document.getElementById('new-deliverer-phone').value = '';
+            });
+        };
+
+        window.removeDeliverer = (idx) => {
+            const deliverers = [...(state.config.deliverers || [])];
+            deliverers.splice(idx, 1);
+            window.saveConfigSafe({ deliverers }).then(() => window.toast("Entregador Removido!"));
+        };
+
+        window.dispatchOrder = (orderId, pd) => {
+            state.pendingDispatch = { orderId, pd };
+            const container = document.getElementById('dispatch-deliverers');
+            const deliverers = state.config.deliverers || [];
+            if (deliverers.length === 0) {
+                return window.toast("Cadastre um entregador primeiro em Loja > Entregadores!", "error");
+            }
+            container.innerHTML = deliverers.map((d, idx) => `
+                <button onclick="window.sendToDeliverer(${idx})" class="w-full flex items-center gap-4 p-4 bg-slate-50 hover:bg-emerald-50 border border-slate-100 hover:border-emerald-200 rounded-2xl transition-all text-left">
+                    <div class="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
+                        <i data-lucide="bike" class="w-5 h-5"></i>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm font-black text-slate-800">${d.name}</p>
+                        <p class="text-[10px] text-slate-400">${d.phone}</p>
+                    </div>
+                    <i data-lucide="send" class="w-4 h-4 text-emerald-400"></i>
+                </button>`).join('');
+            window.refreshIcons();
+            const modal = document.getElementById('dispatch-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        };
+
+        window.closeDispatchModal = () => {
+            const modal = document.getElementById('dispatch-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            state.pendingDispatch = null;
+        };
+
+        window.sendToDeliverer = (delivererIdx) => {
+            const { orderId, pd } = state.pendingDispatch || {};
+            if (!pd) return;
+            const d = (state.config.deliverers || [])[delivererIdx];
+            if (!d) return;
+            const items = (pd.items || []).map(i => `  %E2%80%A2 ${i.qty}x ${i.name}`).join('%0A');
+            const lines = [
+                `*%F0%9F%9B%BA NOVO PEDIDO PARA ENTREGA*`,
+                `*Pedido:* %23${orderId.slice(-6).toUpperCase()}`,
+                ``,
+                `*%F0%9F%94%B5 CLIENTE*`,
+                `Nome: ${encodeURIComponent(pd.clientName)}`,
+                `Fone: ${pd.phone}`,
+                ``,
+                `*%F0%9F%93%8D ENDERE%C3%87O*`,
+                encodeURIComponent(pd.address),
+                ``,
+                `*%F0%9F%93%A6 ITENS*`,
+                items,
+                ``,
+                `*%F0%9F%92%B0 TOTAL: ${pd.total}*`,
+                ``,
+                `_Loja: ${encodeURIComponent(state.config.storeName)}_`
+            ].join('%0A');
+            const phone = d.phone.replace(/\D/g, '');
+            window.open(`https://wa.me/${phone}?text=${lines}`, '_blank');
+            window.closeDispatchModal();
+            updateDoc(doc(db, "pedidos", orderId), { status: 'saiu_entrega' }).catch(e => console.error("Falha ao atualizar st", e));
+            window.toast(`Enviado para ${d.name} e Atualizado!`);
         };
 
         window.clearAllOrders = async () => {
