@@ -116,6 +116,45 @@
         .safe-pb {
             padding-bottom: env(safe-area-inset-bottom);
         }
+
+        @media print {
+            @page {
+                size: 75mm auto;
+                margin: 0;
+            }
+
+            body * {
+                visibility: hidden;
+            }
+
+            #print-receipt,
+            #print-receipt * {
+                visibility: visible;
+            }
+
+            #print-receipt {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 75mm;
+                padding: 0 2mm;
+                margin: 0;
+                box-sizing: border-box;
+                font-family: 'Courier New', Courier, monospace;
+                font-size: 12px;
+                color: #000;
+                background: #fff;
+                overflow-wrap: break-word;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+        }
+
+        #print-receipt {
+            display: none;
+        }
     </style>
     <script>
         tailwind.config = {
@@ -326,9 +365,6 @@
                                     class="w-full bg-slate-50 p-4 rounded-2xl text-sm font-medium outline-none border border-slate-100 focus:bg-white focus:border-brand-200 transition-all sm:col-span-2">
                                 <select id="new-prod-cat" title="Categoria do Produto"
                                     class="w-full bg-slate-50 p-4 rounded-2xl text-sm font-bold outline-none border border-slate-100 focus:bg-white focus:border-brand-200 transition-all appearance-none">
-                                    <option value="CARDÁPIO DE AÇAÍ GOURMET">AÇAÍ GOURMET</option>
-                                    <option value="CARDÁPIO DE AÇAÍ GOURMET 2">BARCAS & ROLETA</option>
-                                    <option value="SORVETE E PICOLE">SORVETES & PICOLÉS</option>
                                 </select>
                                 <button onclick="window.addProduct()"
                                     class="w-full py-4 btn-premium rounded-2xl font-black text-xs uppercase tracking-[0.2em]">Salvar
@@ -344,6 +380,20 @@
                                 <div id="stock-list" class="space-y-3"></div>
                             </div>
                             <div class="space-y-4">
+                                <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 px-2">
+                                    Categorias (Abas do Menu)</h4>
+                                <div class="dashboard-card p-6 bg-slate-50/50 mb-4 border-dashed">
+                                    <div class="flex gap-2">
+                                        <input id="new-cat-name" title="Nova Categoria"
+                                            placeholder="Ex: Pizza, Bebidas..."
+                                            class="flex-1 bg-white p-3 rounded-xl text-xs font-bold border border-slate-200 outline-none">
+                                        <button onclick="window.addCategory()"
+                                            class="px-4 py-3 bg-brand-100 text-brand-700 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-brand-200 transition-all">Add
+                                            Aba</button>
+                                    </div>
+                                </div>
+                                <div id="categories-list" class="space-y-2 pb-6"></div>
+
                                 <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 px-2">Extras
                                     & Complementos</h4>
                                 <div class="dashboard-card p-6 bg-slate-50/50 mb-4 border-dashed">
@@ -636,7 +686,12 @@
             posts: [{ id: 1, title: 'Seja bem-vindo!', message: 'O melhor sabor perto de si!', date: new Date().toISOString() }],
             pixKey: "912345678",
             pixName: "Açaiteria Japa Point",
-            zones: [{ name: "Centro", price: 0 }, { name: "Bairros", price: 5.00 }]
+            zones: [{ name: "Centro", price: 0 }, { name: "Bairros", price: 5.00 }],
+            categories: [
+                { id: "CARDÁPIO DE AÇAÍ GOURMET", name: "AÇAÍ GOURMET" },
+                { id: "CARDÁPIO DE AÇAÍ GOURMET 2", name: "BARCAS & ROLETA" },
+                { id: "SORVETE E PICOLE", name: "SORVETE" }
+            ]
         };
 
         let state = { config: DEFAULT_CONFIG, isAdmin: false, currentTab: 'pedidos', knownOrders: new Set() };
@@ -657,6 +712,107 @@
         };
 
         window.refreshIcons = () => { if (typeof lucide !== 'undefined') lucide.createIcons(); };
+
+        window.printOrder = (data, id) => {
+            const receipt = document.getElementById('print-receipt');
+
+            const formatDate = (isoStr) => {
+                const d = new Date(isoStr);
+                return d.toLocaleDateString('pt-BR') + ' às ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            };
+
+            const renderDetails = (details) => {
+                if (!details) return '';
+                let html = '';
+                const sections = [
+                    { key: 'complementos', label: 'COMPLEMENTOS' },
+                    { key: 'adicionais', label: 'ADICIONAIS' },
+                    { key: 'coberturas', label: 'COBERTURAS' }
+                ];
+
+                sections.forEach(s => {
+                    const list = details[s.key];
+                    if (list && list.length > 0) {
+                        html += `
+                            <p style="margin: 5px 0 2px 0; font-weight: 900; font-size: 13px;">${s.label} ${list.length}</p>
+                            <p style="margin: 0; font-size: 12px; line-height: 1.2;">1x | ${list.join(', 1x | ').toUpperCase()}</p>
+                        `;
+                    }
+                });
+                return html;
+            };
+
+            const itemsHtml = data.items.map(i => `
+                <div style="margin-bottom: 8px;">
+                    <p style="margin: 0; font-weight: 900; font-size: 14px; text-transform: uppercase;">${i.name}</p>
+                    <p style="margin: 0; font-size: 13px;">Qatd. ${i.qty}x, Valor: R$ ${((i.price || 0) * i.qty).toFixed(2).replace('.', ',')}</p>
+                    ${renderDetails(i.details)}
+                    ${(!i.details && i.obs) ? `<p style="margin: 2px 0; font-size: 12px; font-style: italic;">Obs: ${i.obs}</p>` : ''}
+                </div>
+            `).join('');
+
+            // Calculate subtotal and delivery
+            const totalVal = parseFloat(data.total.replace('R$', '').replace(',', '.').trim()) || 0;
+            // Delivery zone price extraction fallback
+            let deliveryFee = 0;
+            if (data.address && data.address !== 'Retirada no local' && data.address !== 'Retirada na Loja') {
+                // If we don't have structured subtotal/delivery yet, we might need to assume or check config
+                // For now, let's keep it simple or try to find it in the data
+            }
+
+            receipt.innerHTML = `
+                <div style="text-align: center; margin-bottom: 10px; font-family: monospace;">
+                    <p style="margin: 0; font-size: 12px; letter-spacing: 1px;">${id.toUpperCase()}</p>
+                    <p style="margin: 0; font-size: 12px;">JapaPoint Açaiteria-Sorveteria</p>
+                    <div style="border-bottom: 1px dashed #000; margin: 5px 0;"></div>
+                    <p style="margin: 5px 0; font-weight: 900; font-size: 14px;">Pedido ${id.slice(-3).toUpperCase()}</p>
+                </div>
+
+                <div style="font-size: 13px; line-height: 1.3; margin-bottom: 10px; width: 100%; box-sizing: border-box;">
+                    <p style="margin: 0;"><strong>Data:</strong> ${formatDate(data.createdAt)}</p>
+                    <p style="margin: 0;"><strong>Origem:</strong> Cardápio</p>
+                    
+                    <p style="margin: 8px 0 2px 0; font-weight: 900;">Detalhes do Comprador:</p>
+                    <p style="margin: 0;">Nome: ${data.clientName}</p>
+                    <p style="margin: 0;">Telefone: ${data.phone}</p>
+                    <div style="border-bottom: 1px dashed #000; margin: 8px 0;"></div>
+                    
+                    <p style="margin: 8px 0;"><strong>Tipo de delivery:</strong> ${data.deliveryType || (data.address.includes('Retirada') ? 'Retirada no local' : 'Entrega')}</p>
+                    <p style="margin: 8px 0; text-align: center;">*** Detalhes do Pedido: ***</p>
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    ${itemsHtml}
+                    <div style="border-bottom: 1px dashed #000; margin: 10px 0;"></div>
+                </div>
+
+                <div style="font-size: 13px; line-height: 1.4; margin-bottom: 15px; width: 100%; box-sizing: border-box;">
+                    <p style="margin: 0; font-weight: 900;">Valores:</p>
+                    <div style="display: flex; justify-content: space-between; width: 100%;">
+                        <span>Valor do Pedido:</span> <strong>${data.total}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; width: 100%;">
+                        <span>Taxa de Entrega:</span> <strong>R$ 0,00</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; width: 100%;">
+                        <span>Valor Total:</span> <strong>${data.total}</strong>
+                    </div>
+                    <div style="border-bottom: 1px dashed #000; margin: 10px 0;"></div>
+                </div>
+
+                <div style="font-size: 13px; margin-bottom: 20px;">
+                    <p style="margin: 0;"><strong>Forma de Pagamento:</strong> Online - ${data.paymentMethod}</p>
+                </div>
+
+                <div style="text-align: center; font-size: 12px; margin-top: 20px; border-top: 1px dashed #000; padding-top: 10px;">
+                    <p style="margin: 0;">JapaPoint Açaiteria-Sorveteria | ${data.phone || ''}</p>
+                </div>
+            `;
+
+            receipt.style.display = 'block';
+            window.print();
+            receipt.style.display = 'none';
+        };
 
         // AUTH
         window.adminLogout = async () => { if (auth) await signOut(auth); window.location.reload(); };
@@ -687,7 +843,20 @@
         };
 
         const orderSound = new Audio("https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg");
-        const playOrderSound = () => { orderSound.currentTime = 0; orderSound.play().catch(() => { }); };
+        orderSound.volume = 1.0;
+        orderSound.loop = true;
+
+        window.refreshOrderSound = (anyPendente) => {
+            if (anyPendente) {
+                if (orderSound.paused) {
+                    orderSound.currentTime = 0;
+                    orderSound.play().catch(() => { });
+                }
+            } else {
+                orderSound.pause();
+                orderSound.currentTime = 0;
+            }
+        };
 
         window.initFirebaseAdmin = async () => {
             onAuthStateChanged(auth, (user) => {
@@ -703,23 +872,30 @@
 
                     // 2. Real-time Config Sync
                     onSnapshot(getConfigDocRef(), (snap) => {
-                        if (snap.exists()) {
-                            state.config = { ...DEFAULT_CONFIG, ...snap.data() };
-                            window.populateAdminSettings();
-                            window.updateStatusUI();
-                            window.renderAdminStock();
-                            window.renderAdminPosts();
-                            window.renderAdminHighlightsList();
-                            window.renderAdminZones();
-                        } else {
-                            // If first time or empty, show defaults
-                            window.populateAdminSettings();
-                            window.updateStatusUI();
-                            window.renderAdminStock();
-                            window.renderAdminPosts();
-                            window.renderAdminHighlightsList();
-                            window.renderAdminZones();
-                        }
+                        const data = snap.exists() ? snap.data() : {};
+                        state.config = { ...DEFAULT_CONFIG, ...data };
+
+                        // Garante que as categorias padrão existam
+                        const fixedIds = ["CARDÁPIO DE AÇAÍ GOURMET", "CARDÁPIO DE AÇAÍ GOURMET 2", "SORVETE E PICOLE"];
+                        let currentCats = state.config.categories || [];
+                        const currentIds = currentCats.map(c => typeof c === 'string' ? c : c.id);
+
+                        fixedIds.forEach(id => {
+                            if (!currentIds.includes(id)) {
+                                const def = DEFAULT_CONFIG.categories.find(c => c.id === id);
+                                if (def) currentCats.unshift(def);
+                            }
+                        });
+                        state.config.categories = currentCats;
+
+                        window.populateAdminSettings();
+                        window.updateStatusUI();
+                        window.renderAdminStock();
+                        window.renderAdminCategories();
+                        window.populateCategoryDropdown();
+                        window.renderAdminPosts();
+                        window.renderAdminHighlightsList();
+                        window.renderAdminZones();
                     });
 
                     // 3. Real-time Orders Sync
@@ -729,7 +905,7 @@
                         const list = document.getElementById('admin-orders-list');
                         if (!list) return;
                         list.innerHTML = "";
-                        let hasNew = false;
+                        let hasAnyPendente = false;
 
                         if (snap.empty) {
                             list.innerHTML = `<div class="dashboard-card p-12 text-center opacity-60"><i data-lucide="inbox" class="w-12 h-12 text-slate-200 mx-auto mb-4"></i><p class="text-slate-400 font-medium text-sm">Nenhum pedido recebido.</p></div>`;
@@ -739,10 +915,10 @@
                                 const id = docSnap.id;
                                 const isPendente = pd.status === 'pendente';
 
-                                // Check for NEW orders (last 5 mins)
+                                // Check for NEW or PENDING orders
+                                if (isPendente) hasAnyPendente = true;
                                 const timeDiff = new Date() - new Date(pd.createdAt);
                                 if (isPendente && timeDiff < 300000 && !state.knownOrders.has(id)) {
-                                    hasNew = true;
                                     state.knownOrders.add(id);
                                 }
 
@@ -758,6 +934,9 @@
                                             </div>
                                             <div class="flex items-center gap-3">
                                                 <span class="font-display font-black text-xl text-brand-700">${pd.total}</span>
+                                                <button onclick="window.printOrder(${JSON.stringify(pd).replace(/"/g, '&quot;')}, '${id}')" title="Imprimir Pedido" class="p-2 text-slate-300 hover:text-brand-700 transition-colors">
+                                                    <i data-lucide="printer" class="w-4 h-4"></i>
+                                                </button>
                                                 <button onclick="window.deleteOrder('${id}')" title="Excluir Pedido" class="p-2 text-slate-300 hover:text-red-500 transition-colors">
                                                     <i data-lucide="trash-2" class="w-4 h-4"></i>
                                                 </button>
@@ -776,8 +955,8 @@
                             });
                         }
 
-                        if (hasNew) {
-                            playOrderSound();
+                        window.refreshOrderSound(hasAnyPendente);
+                        if (hasAnyPendente) {
                             document.getElementById('orders-badge').classList.remove('hidden');
                         }
                         window.refreshIcons();
@@ -925,6 +1104,31 @@
             window.refreshIcons();
         };
 
+        window.renderAdminCategories = () => {
+            const list = document.getElementById('categories-list'); if (!list) return;
+            list.innerHTML = "";
+            (state.config.categories || []).forEach((c, idx) => {
+                const label = typeof c === 'string' ? c : c.name;
+                list.innerHTML += `
+                    <div class="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-xl shadow-sm">
+                        <span class="text-[11px] font-bold text-slate-700">${label}</span>
+                        <button onclick="window.deleteCategory(${idx})" class="p-2 text-red-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                    </div>`;
+            });
+            window.refreshIcons();
+        };
+
+        window.populateCategoryDropdown = () => {
+            const sel = document.getElementById('new-prod-cat'); if (!sel) return;
+            const current = sel.value;
+            sel.innerHTML = (state.config.categories || []).map(c => {
+                const id = typeof c === 'string' ? c : c.id;
+                const name = typeof c === 'string' ? c : c.name;
+                return `<option value="${id}">${name}</option>`;
+            }).join('');
+            if (current) sel.value = current;
+        };
+
         // ACTIONS
         window.saveConfigSafe = async (partial) => {
             state.config = { ...state.config, ...partial };
@@ -1049,6 +1253,33 @@
             window.saveConfigSafe({ zones });
         };
 
+        window.addCategory = () => {
+            const name = document.getElementById('new-cat-name').value.trim();
+            if (!name) return window.toast("Digite o nome da categoria!", "error");
+            // Se for novo, id e name iguais
+            const categories = [...(state.config.categories || []), { id: name, name: name }];
+            window.saveConfigSafe({ categories }).then(() => {
+                window.toast("Categoria Adicionada!");
+                document.getElementById('new-cat-name').value = '';
+            });
+        };
+
+        window.deleteCategory = (idx) => {
+            const cat = state.config.categories[idx];
+            const id = typeof cat === 'string' ? cat : cat.id;
+            const fixedIds = ["CARDÁPIO DE AÇAÍ GOURMET", "CARDÁPIO DE AÇAÍ GOURMET 2", "SORVETE E PICOLE"];
+
+            if (fixedIds.includes(id)) {
+                return window.toast("Esta categoria é padrão e não pode ser removida.", "error");
+            }
+
+            if (confirm("Remover categoria? Produtos nela não serão apagados, mas a aba sumirá.")) {
+                const categories = [...state.config.categories];
+                categories.splice(idx, 1);
+                window.saveConfigSafe({ categories });
+            }
+        };
+
         window.acceptOrder = async (orderId) => {
             await updateDoc(doc(db, "pedidos", orderId), { status: 'aceito' });
             window.toast("Pedido emPreparação!");
@@ -1146,6 +1377,7 @@
         };
 
     </script>
+    <div id="print-receipt"></div>
 </body>
 
 </html>

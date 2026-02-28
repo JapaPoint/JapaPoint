@@ -367,6 +367,7 @@
           <button onclick="window.filterCategory('SORVETE E PICOLE')"
             class="cat-btn px-6 py-2.5 rounded-full text-xs font-black bg-white/10 text-white border border-white/20 whitespace-nowrap active:scale-95 transition-all"
             data-cat="SORVETE E PICOLE">SORVETE</button>
+          <div id="extra-categories" class="flex gap-2"></div>
         </div>
       </div>
     </header>
@@ -526,6 +527,12 @@
             </div>
             <p class="text-[10px] text-slate-500 font-medium">Copie a chave e envie o comprovativo no WhatsApp ao
               finalizar.</p>
+            <label
+              class="flex items-center justify-center gap-2 mt-4 cursor-pointer p-3 bg-white rounded-xl border border-brand-100 shadow-sm">
+              <input type="checkbox" id="pix-paid-check" onchange="window.validateCheckout()"
+                class="w-4 h-4 rounded border-slate-300 text-brand-700 focus:ring-brand-500">
+              <span class="text-xs font-bold text-brand-900">Já fiz o pagamento (MB Way / Pix)</span>
+            </label>
           </div>
         </div>
       </div>
@@ -775,7 +782,12 @@
         posts: [{ id: 1, title: 'Seja bem-vindo!', message: 'Açaiteria Japa Point: O melhor sabor perto de si!', image: '', date: new Date().toISOString() }],
         pixKey: "912345678",
         pixName: "Açaiteria Japa Point",
-        zones: [{ name: "Centro", price: 0 }, { name: "Bairros", price: 5.00 }]
+        zones: [{ name: "Centro", price: 0 }, { name: "Bairros", price: 5.00 }],
+        categories: [
+          { id: "CARDÁPIO DE AÇAÍ GOURMET", name: "AÇAÍ GOURMET" },
+          { id: "CARDÁPIO DE AÇAÍ GOURMET 2", name: "BARCAS & ROLETA" },
+          { id: "SORVETE E PICOLE", name: "SORVETE" }
+        ]
       },
       selectedItems: new Set(),
       qty: 1,
@@ -1016,7 +1028,7 @@
           const priceText = opt.price > 0 ? `+R$ ${opt.price.toFixed(2)}` : 'Grátis';
           html += `
                     <label class="cursor-pointer relative group flex-1">
-                        <input type="checkbox" class="option-checkbox ${isLimited ? 'limit-global' : ''} hidden" value="${opt.name}" data-price="${opt.price || 0}" onchange="window.recalcAcaiModalTotal(); window.checkBuilderLimits(this)">
+                        <input type="checkbox" class="option-checkbox ${isLimited ? 'limit-global' : ''} hidden" value="${opt.name}" data-price="${opt.price || 0}" data-type="${type}" onchange="window.recalcAcaiModalTotal(); window.checkBuilderLimits(this)">
                         <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 transition-all hover:bg-white flex items-center justify-between h-full">
                             <div class="flex flex-col pr-1">
                                 <span class="leading-tight">${opt.name}</span>
@@ -1067,12 +1079,29 @@
 
     window.addAcaiToCart = () => {
       let extras = 0;
-      const selected = Array.from(document.querySelectorAll('.option-checkbox:checked')).map(cb => {
-        extras += parseFloat(cb.dataset.price);
-        return cb.value;
+      const details = { complementos: [], adicionais: [], coberturas: [] };
+
+      const selectedCbs = Array.from(document.querySelectorAll('.option-checkbox:checked'));
+      selectedCbs.forEach(cb => {
+        const val = cb.value;
+        const p = parseFloat(cb.dataset.price);
+        const type = cb.dataset.type;
+        extras += p;
+        if (details[type]) details[type].push(val);
       });
-      const obs = selected.length > 0 ? "Com: " + selected.join(", ") : "Tradicional";
-      state.cart.push({ id: Date.now() + Math.random(), name: state.currentAcai.name, price: state.currentAcai.price + extras, obs, qty: state.acaiQty });
+
+      const allNames = selectedCbs.map(cb => cb.value);
+      const obs = allNames.length > 0 ? "Com: " + allNames.join(", ") : "Tradicional";
+
+      state.cart.push({
+        id: Date.now() + Math.random(),
+        name: state.currentAcai.name,
+        price: state.currentAcai.price + extras,
+        basePrice: state.currentAcai.price,
+        obs,
+        details, // Structured data for printing
+        qty: state.acaiQty
+      });
       saveCart(); window.renderCart(); window.closeAcaiModal(); window.toast("Adicionado!");
       setTimeout(() => window.toggleCart(true), 300);
     };
@@ -1097,6 +1126,18 @@
       window.refreshIcons();
     };
 
+    window.getCategoryIcon = (cat) => {
+      const c = cat.toUpperCase();
+      if (c.includes('AÇAÍ')) return 'sparkles';
+      if (c.includes('SORVETE') || c.includes('PICOLE') || c.includes('GELADO')) return 'ice-cream';
+      if (c.includes('PIZZA')) return 'pizza';
+      if (c.includes('BEBIDA') || c.includes('COPO') || c.includes('REFRIGERANTE') || c.includes('SUCO')) return 'cup-soda';
+      if (c.includes('DOCE') || c.includes('SOBREMESA')) return 'cookie';
+      if (c.includes('SALGADO') || c.includes('LANCHE')) return 'utensils';
+      if (c.includes('BARCA') || c.includes('ROLETA')) return 'star'; // Destaques/Combos
+      return 'package';
+    };
+
     window.renderMenu = () => {
       const grid = document.getElementById('products-grid');
       grid.innerHTML = "";
@@ -1115,7 +1156,7 @@
         div.onclick = () => isMonte ? window.openAcaiModal(item) : window.toggleSelection(item.name);
         div.innerHTML = `
             <div class="w-[60px] h-[60px] rounded-2xl bg-brand-50 flex items-center justify-center shrink-0">
-              <i data-lucide="${isMonte ? 'sparkles' : 'ice-cream'}" class="w-7 h-7 text-brand-700"></i>
+              <i data-lucide="${window.getCategoryIcon(item.category)}" class="w-7 h-7 text-brand-700"></i>
             </div>
             <div class="flex-1 min-w-0">
               <h3 class="font-bold text-slate-800 text-sm leading-tight">${item.name}</h3>
@@ -1159,6 +1200,31 @@
       window.refreshIcons();
     };
 
+    window.renderCategories = () => {
+      const extra = document.getElementById('extra-categories'); if (!extra) return;
+      extra.innerHTML = "";
+
+      // Filtramos apenas as categorias que NÃO são as 3 padrão (para não duplicar)
+      const fixedIds = ["CARDÁPIO DE AÇAÍ GOURMET", "CARDÁPIO DE AÇAÍ GOURMET 2", "SORVETE E PICOLE"];
+      const baseCats = (state.config.categories || []).filter(c => {
+        const id = typeof c === 'string' ? c : c.id;
+        return !fixedIds.includes(id);
+      });
+
+      baseCats.forEach(c => {
+        const id = typeof c === 'string' ? c : (c.id || c.name);
+        const name = typeof c === 'string' ? c : c.name;
+        const isActive = state.filter === id;
+        const btn = document.createElement('button');
+        btn.onclick = () => window.filterCategory(id);
+        btn.dataset.cat = id;
+        btn.className = `cat-btn px-6 py-2.5 rounded-full text-xs font-black transition-all whitespace-nowrap active:scale-95 ${isActive ? 'active bg-white text-brand-700 shadow-lg' : 'bg-white/10 text-white border border-white/20'}`;
+        btn.innerText = name;
+        extra.appendChild(btn);
+      });
+      window.refreshIcons();
+    };
+
     window.isStoreOpen = () => {
       const h = new Date().getHours();
       const st = state.config.statusMode || 'auto';
@@ -1170,11 +1236,14 @@
       const btn = document.getElementById('btn-checkout');
       const btnText = btn.querySelector('span');
       const isOpen = window.isStoreOpen();
+      const payment = document.getElementById('payment-method').value;
+      const pixCheck = document.getElementById('pix-paid-check');
+      const pixPaid = payment === 'Pix' ? (pixCheck ? pixCheck.checked : false) : true;
 
       const formOk = state.cart.length > 0 &&
         document.getElementById('client-name').value.trim() &&
         document.getElementById('client-phone').value.trim().length >= 10 &&
-        document.getElementById('payment-method').value;
+        payment && pixPaid;
 
       if (!isOpen) {
         btn.disabled = true;
@@ -1204,6 +1273,7 @@
         if (db) {
           const docRef = await addDoc(collection(db, "pedidos"), {
             clientName: name, phone: phone, paymentMethod: payment, address: addr,
+            deliveryType: state.deliveryType,
             items: state.cart, total: totalText, status: 'pendente',
             createdAt: new Date().toISOString(),
             msgRaw: msg // Guardamos a mensagem para enviar depois
@@ -1273,7 +1343,7 @@
           if (snap.exists()) {
             state.config = { ...state.config, ...snap.data() };
             localStorage.setItem("acai_config_local", JSON.stringify(state.config));
-            window.renderMenu(); window.renderPosts(); window.renderHighlights(); window.renderZones(); window.updateUI();
+            window.renderMenu(); window.renderPosts(); window.renderHighlights(); window.renderZones(); window.renderCategories(); window.updateUI();
           }
         }, (err) => {
           console.warn("Acesso ao banco limitado:", err.message);
@@ -1319,7 +1389,7 @@
       const form = localStorage.getItem('acai_form_data');
       if (form) { const d = JSON.parse(form); document.getElementById('client-name').value = d.name; document.getElementById('client-phone').value = d.phone; document.getElementById('client-address').value = d.address; }
 
-      window.initFirebase(); window.renderMenu(); window.renderCart(); window.renderPosts(); window.renderHighlights(); window.renderZones(); window.updateUI();
+      window.initFirebase(); window.renderMenu(); window.renderCart(); window.renderPosts(); window.renderHighlights(); window.renderZones(); window.renderCategories(); window.updateUI();
 
       // Auto-reconnect tracking
       const pending = localStorage.getItem('acai_pending_order');
