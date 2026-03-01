@@ -345,12 +345,18 @@
           </div>
         </div>
 
-        <button onclick="window.toggleCart(true)"
-          class="relative p-3 rounded-2xl bg-white/10 border border-white/20 shadow-sm active:scale-90 text-white transition-all">
-          <i data-lucide="shopping-bag" class="w-5 h-5"></i>
-          <span id="cart-count"
-            class="absolute -top-1 -right-1 bg-japa-red text-white text-[9px] font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-brand-700 transform scale-0 transition-transform shadow-sm">0</span>
-        </button>
+        <div class="flex items-center gap-2">
+          <button id="btn-instagram" onclick="if(state.config.instagram) window.open(state.config.instagram, '_blank')"
+            class="hidden p-3 rounded-2xl bg-white/10 border border-white/20 shadow-sm active:scale-90 text-white transition-all">
+            <i data-lucide="instagram" class="w-5 h-5"></i>
+          </button>
+          <button onclick="window.toggleCart(true)"
+            class="relative p-3 rounded-2xl bg-white/10 border border-white/20 shadow-sm active:scale-90 text-white transition-all">
+            <i data-lucide="shopping-bag" class="w-5 h-5"></i>
+            <span id="cart-count"
+              class="absolute -top-1 -right-1 bg-japa-red text-white text-[9px] font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-brand-700 transform scale-0 transition-transform shadow-sm">0</span>
+          </button>
+        </div>
       </div>
 
       <div class="px-5 pb-3 pt-1 overflow-x-auto no-scrollbar w-full max-w-lg mx-auto">
@@ -376,7 +382,7 @@
     <main class="px-5 pt-6 w-full max-w-lg space-y-8 flex-1">
 
       <!-- SECÇÃO DE DESTAQUES (BANNERS DINÂMICOS DO PAINEL) -->
-      <div class="w-[calc(100%+2.5rem)] -mx-5">
+      <div id="highlights-section" class="w-[calc(100%+2.5rem)] -mx-5 hidden">
         <div id="highlights-container"
           class="flex gap-4 overflow-x-auto snap-x snap-mandatory no-scrollbar px-5 pb-4 pt-1">
           <!-- Os banners editáveis aparecerão aqui via JS -->
@@ -908,9 +914,12 @@
       let total = 0;
       (state.config.sizes || []).forEach(i => { if (state.selectedItems.has(i.name)) total += i.price; });
       const final = total * state.qty;
-      document.getElementById('price-display').innerText = `R$ ${final.toFixed(2).replace('.', ',')}`;
+      const showP = state.config.showPrices !== false;
+      document.getElementById('price-display').innerText = showP ? `R$ ${final.toFixed(2).replace('.', ',')}` : 'Solicitar';
       const btn = document.getElementById('btn-add');
-      if (final > 0) {
+
+      // If prices are hidden, always allow adding to cart as long as final > 0 or it's just normal products.
+      if (final > 0 || !showP) {
         btn.disabled = false;
         btn.className = "flex-1 h-16 bg-japa-red text-white rounded-2xl shadow-japa-red flex items-center justify-between px-6 active:scale-95 transition-all animate-pulse-red";
       } else {
@@ -958,6 +967,8 @@
       list.innerHTML = "";
       let subtotal = 0;
       let count = 0;
+      const showP = state.config.showPrices !== false;
+
       if (state.cart.length === 0) {
         list.innerHTML = `<div class="flex flex-col items-center justify-center py-10 opacity-50"><i data-lucide="shopping-cart" class="w-12 h-12 text-slate-300 mb-2"></i><p class="text-sm font-bold text-slate-400">Vazio</p></div>`;
         document.getElementById('checkout-form').classList.add('hidden');
@@ -974,7 +985,7 @@
                   <span class="font-bold text-sm text-slate-800">${item.name}</span>
                 </div>
                 ${item.obs ? `<p class="text-[10px] text-slate-400 mt-1 italic">${item.obs}</p>` : ''}
-                <p class="text-xs font-bold text-japa-red mt-1.5">R$ ${(item.price * item.qty).toFixed(2).replace('.', ',')}</p>
+                ${showP ? `<p class="text-xs font-bold text-japa-red mt-1.5">R$ ${(item.price * item.qty).toFixed(2).replace('.', ',')}</p>` : ''}
               </div>
               <div class="flex items-center bg-slate-50 rounded-xl h-9 border border-slate-200">
                 <button onclick="window.modCartItem(${item.id}, -1)" class="w-9 font-bold">-</button>
@@ -1014,10 +1025,7 @@
         btnEnt.className = active; btnRet.className = inactive; details.classList.remove('hidden');
         const sel = document.getElementById('delivery-zone');
         if (sel && sel.options.length <= 1) {
-          sel.innerHTML = '<option value="" disabled selected>Zona de Entrega</option>';
-          (state.config.zones || []).forEach((z, idx) => {
-            sel.innerHTML += `<option value="${idx}" data-price="${z.price}" data-name="${z.name}">${z.name} (R$ ${z.price.toFixed(2)})</option>`;
-          });
+          window.renderZones();
         }
       }
       window.renderCart();
@@ -1052,28 +1060,50 @@
       container.innerHTML = "";
 
       const renderSection = (title, options, type) => {
+        if (!options || options.length === 0) return '';
         let html = `<div class="mb-6"><h4 class="text-xs font-black text-brand-700 uppercase mb-3 flex items-center gap-2"><div class="w-1 h-3 bg-japa-red rounded-full"></div>${title}</h4><div class="grid grid-cols-2 gap-3">`;
         (options || []).filter(o => o.available !== false).forEach(opt => {
           const isLimited = (type === 'complementos');
-          const priceText = opt.price > 0 ? `+R$ ${opt.price.toFixed(2)}` : 'Grátis';
+
+          let priceVal = 0;
+          let priceText = 'Grátis';
+
+          if (opt.isPercentage && opt.price > 0) {
+            priceVal = (opt.price / 100) * state.currentAcai.price;
+            priceText = `+${opt.price}% (R$ ${priceVal.toFixed(2).replace('.', ',')})`;
+          } else if (opt.price > 0) {
+            priceVal = opt.price;
+            priceText = `+R$ ${opt.price.toFixed(2).replace('.', ',')}`;
+          }
+
+          const hasImg = !!opt.image;
+
           html += `
                     <label class="cursor-pointer relative group flex-1">
-                        <input type="checkbox" class="option-checkbox ${isLimited ? 'limit-global' : ''} hidden" value="${opt.name}" data-price="${opt.price || 0}" data-type="${type}" onchange="window.recalcAcaiModalTotal(); window.checkBuilderLimits(this)">
-                        <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 transition-all hover:bg-white flex items-center justify-between h-full">
-                            <div class="flex flex-col pr-1">
-                                <span class="leading-tight">${opt.name}</span>
-                                <span class="text-[9px] ${opt.price > 0 ? 'text-japa-red' : 'opacity-60'}">${priceText}</span>
+                        <input type="checkbox" class="option-checkbox ${isLimited ? 'limit-global' : ''} hidden" value="${opt.name}" data-price="${priceVal}" data-type="${type}" onchange="window.recalcAcaiModalTotal(); window.checkBuilderLimits(this)">
+                        <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 transition-all hover:bg-white flex flex-col md:flex-row items-center md:items-start justify-between h-full gap-2 relative overflow-hidden">
+                            <div class="flex items-center gap-2 w-full">
+                                ${hasImg ? `<img src="${opt.image}" class="w-10 h-10 rounded-lg object-cover shrink-0 shadow-sm bg-white">` : ''}
+                                <div class="flex flex-col pr-1 flex-1 min-w-0">
+                                    <span class="leading-tight text-[11px] font-black">${opt.name}</span>
+                                    <span class="text-[9px] ${priceVal > 0 ? 'text-japa-red' : 'opacity-60'}">${priceText}</span>
+                                </div>
                             </div>
-                            <div class="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center shrink-0"><i data-lucide="check" class="check-icon-sm w-3 h-3 text-japa-red opacity-0 transform scale-50 transition-all"></i></div>
+                            <div class="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center shrink-0 bg-white"><i data-lucide="check" class="check-icon-sm w-3 h-3 text-japa-red opacity-0 transform scale-50 transition-all"></i></div>
                         </div>
                     </label>`;
         });
         html += `</div></div>`; return html;
       };
-      const acc = state.config.accompaniments;
+
+      const acc = state.config.accompaniments || {};
       container.innerHTML += renderSection("Complementos (Grátis)", acc.complementos, "complementos");
       container.innerHTML += renderSection("Adicionais (Pagos)", acc.adicionais, "adicionais");
       container.innerHTML += renderSection("Coberturas", acc.coberturas, "coberturas");
+      if (acc.acrescimos && acc.acrescimos.length > 0) {
+        container.innerHTML += renderSection("Acréscimos", acc.acrescimos, "acrescimos");
+      }
+
       document.getElementById('acai-modal').classList.remove('hidden');
       window.recalcAcaiModalTotal();
       window.refreshIcons();
@@ -1109,7 +1139,7 @@
 
     window.addAcaiToCart = () => {
       let extras = 0;
-      const details = { complementos: [], adicionais: [], coberturas: [] };
+      const details = { complementos: [], adicionais: [], coberturas: [], acrescimos: [] };
 
       const selectedCbs = Array.from(document.querySelectorAll('.option-checkbox:checked'));
       selectedCbs.forEach(cb => {
@@ -1137,9 +1167,19 @@
     };
 
     window.renderHighlights = () => {
+      const parent = document.getElementById('highlights-section');
       const container = document.getElementById('highlights-container');
+      if (!container || !parent) return;
+
+      const hs = state.config.highlights || [];
+      if (state.config.showHighlights === false || hs.length === 0) {
+        parent.classList.add('hidden');
+        return;
+      }
+      parent.classList.remove('hidden');
       container.innerHTML = '';
-      (state.config.highlights || []).forEach((h) => {
+
+      hs.forEach((h) => {
         const color = h.color === 'brand' ? 'from-brand-700 to-brand-900' : (h.color === 'pink' ? 'from-japa-red to-brand-900' : 'from-japa-green to-brand-700');
         container.innerHTML += `
                 <div class="relative w-[85%] sm:w-[280px] shrink-0 snap-center h-44 rounded-[2rem] overflow-hidden shadow-xl group cursor-pointer" onclick="window.filterCategory('TODAS')">
@@ -1172,26 +1212,27 @@
       const grid = document.getElementById('products-grid');
       grid.innerHTML = "";
       const term = document.getElementById('search-input').value.toLowerCase();
+      const showP = state.config.showPrices !== false;
       const items = (state.config.sizes || []).filter(i => {
         if (i.available === false) return false;
-        const m = i.name.toLowerCase().includes(term) || i.description.toLowerCase().includes(term);
+        const m = i.name.toLowerCase().includes(term) || (i.description || '').toLowerCase().includes(term);
         return (state.filter === 'TODAS' || i.category === state.filter) && m;
       });
       items.forEach((item, idx) => {
         const isSel = state.selectedItems.has(item.name);
-        const isMonte = item.category.includes('AÇAÍ GOURMET');
+        const isMonte = item.category && item.category.includes('AÇAÍ GOURMET');
         const div = document.createElement('div');
         div.style.animationDelay = `${idx * 0.05}s`;
         div.className = `product-card bg-white p-4 rounded-[24px] border border-slate-100 flex items-center gap-4 cursor-pointer relative overflow-hidden ${isSel ? 'selected' : ''}`;
         div.onclick = () => isMonte ? window.openAcaiModal(item) : window.toggleSelection(item.name);
         div.innerHTML = `
             <div class="w-[60px] h-[60px] rounded-2xl bg-brand-50 flex items-center justify-center shrink-0 overflow-hidden shadow-sm">
-              ${item.image ? `<img src="${item.image}" class="w-full h-full object-cover" onerror="this.src='https://placehold.co/100x100?text=Logo'">` : `<i data-lucide="${window.getCategoryIcon(item.category)}" class="w-7 h-7 text-brand-700"></i>`}
+              ${item.image ? `<img src="${item.image}" class="w-full h-full object-cover" onerror="this.src='https://placehold.co/100x100?text=Logo'">` : `<i data-lucide="${window.getCategoryIcon(item.category || '')}" class="w-7 h-7 text-brand-700"></i>`}
             </div>
             <div class="flex-1 min-w-0">
               <h3 class="font-bold text-slate-800 text-sm leading-tight">${item.name}</h3>
-              <p class="text-[11px] text-slate-400 mt-0.5 line-clamp-1">${item.description}</p>
-              <p class="mt-1 font-display font-bold text-brand-700">R$ ${item.price.toFixed(2).replace('.', ',')}</p>
+              <p class="text-[11px] text-slate-400 mt-0.5 line-clamp-1">${item.description || ''}</p>
+              ${showP ? `<p class="mt-1 font-display font-bold text-brand-700">R$ ${item.price.toFixed(2).replace('.', ',')}</p>` : ''}
             </div>
             ${!isMonte ? `<div class="check-circle w-6 h-6 rounded-full border-2 border-slate-200 flex items-center justify-center shrink-0 ml-2">
               <i data-lucide="check" class="check-icon w-3.5 h-3.5 text-white opacity-0 transform scale-50 transition-all"></i>
@@ -1204,15 +1245,32 @@
     window.renderZones = () => {
       const select = document.getElementById('delivery-zone'); if (!select) return;
       const currentVal = select.value;
-      select.innerHTML = '<option value="" disabled selected>Escolha a sua zona...</option>';
-      (state.config.zones || []).forEach(z => {
-        const opt = document.createElement('option');
-        opt.value = z.name;
-        opt.innerText = `${z.name} (+R$ ${z.price.toFixed(2).replace('.', ',')})`;
-        opt.dataset.price = z.price;
-        select.appendChild(opt);
-      });
-      if (currentVal) select.value = currentVal;
+      const useKm = state.config.deliveryConfig?.useKm;
+
+      select.innerHTML = '<option value="" disabled selected>Selecione seu Bairro / Distância da loja</option>';
+
+      if (useKm) {
+        const cfg = state.config.deliveryConfig;
+        const distances = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20];
+        distances.forEach(km => {
+          let price = 0;
+          if (km > cfg.baseKm) price = Math.ceil(km - cfg.baseKm) * cfg.pricePerKm;
+          const opt = document.createElement('option');
+          opt.value = `Até ${km} km`;
+          opt.innerText = `Até ${km} km (+R$ ${price.toFixed(2).replace('.', ',')})`;
+          opt.dataset.price = price;
+          select.appendChild(opt);
+        });
+      } else {
+        (state.config.zones || []).forEach(z => {
+          const opt = document.createElement('option');
+          opt.value = z.name;
+          opt.innerText = `${z.name} (+R$ ${z.price.toFixed(2).replace('.', ',')})`;
+          opt.dataset.price = z.price;
+          select.appendChild(opt);
+        });
+      }
+      if (currentVal && select.querySelector(`option[value="${currentVal}"]`)) select.value = currentVal;
     };
 
     window.renderPosts = () => {
@@ -1256,7 +1314,16 @@
     };
 
     window.isStoreOpen = () => {
-      const h = new Date().getHours();
+      const d = new Date();
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const today = `${year}-${month}-${day}`;
+
+      const holidays = state.config.holidays || [];
+      if (holidays.includes(today)) return false;
+
+      const h = d.getHours();
       const st = state.config.statusMode || 'auto';
       const hours = state.config.openingHours || { start: 13, end: 23 };
       return st === 'open' || (st === 'auto' && h >= hours.start && h < hours.end);
@@ -1456,6 +1523,12 @@
       const indicator = document.getElementById('status-indicator');
       const text = document.getElementById('status-text');
       const dot = document.getElementById('status-dot');
+      const btnInst = document.getElementById('btn-instagram');
+
+      if (btnInst) {
+        if (state.config.instagram) btnInst.classList.remove('hidden');
+        else btnInst.classList.add('hidden');
+      }
 
       if (indicator) {
         indicator.className = `absolute bottom-0 right-0 w-3.5 h-3.5 border-2 border-brand-700 rounded-full transition-all duration-700 ${open ? 'bg-japa-green shadow-[0_0_8px_rgba(104,176,77,0.6)]' : 'bg-japa-red shadow-[0_0_8px_rgba(225,48,50,0.6)]'}`;
