@@ -1097,9 +1097,13 @@
       };
 
       const acc = state.config.accompaniments || {};
+      const showCondensedMilk = state.config.condensedMilk !== false;
+      const filteredCoberturas = (acc.coberturas || []).filter(c =>
+        showCondensedMilk || !c.name.toLowerCase().includes('condensado')
+      );
       container.innerHTML += renderSection("Complementos (Grátis)", acc.complementos, "complementos");
       container.innerHTML += renderSection("Adicionais (Pagos)", acc.adicionais, "adicionais");
-      container.innerHTML += renderSection("Coberturas", acc.coberturas, "coberturas");
+      container.innerHTML += renderSection("Coberturas", filteredCoberturas, "coberturas");
       if (acc.acrescimos && acc.acrescimos.length > 0) {
         container.innerHTML += renderSection("Acréscimos", acc.acrescimos, "acrescimos");
       }
@@ -1166,6 +1170,26 @@
       setTimeout(() => window.toggleCart(true), 300);
     };
 
+    window.formatTimeRemaining = (ms) => {
+      if (ms <= 0) return "Expirado";
+      const days = Math.floor(ms / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((ms % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)).toString().padStart(2, '0');
+      const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60)).toString().padStart(2, '0');
+      const seconds = Math.floor((ms % (1000 * 60)) / 1000).toString().padStart(2, '0');
+      if (days > 0) return `${days}d ${hours}:${minutes}:${seconds}`;
+      return `${hours}:${minutes}:${seconds}`;
+    };
+
+    setInterval(() => {
+      const hs = state.config?.highlights || [];
+      hs.forEach((h, idx) => {
+        if (h.expiry) {
+          const el = document.getElementById(`store-high-timer-${idx}`);
+          if (el) el.innerText = window.formatTimeRemaining(new Date(h.expiry).getTime() - Date.now());
+        }
+      });
+    }, 1000);
+
     window.renderHighlights = () => {
       const parent = document.getElementById('highlights-section');
       const container = document.getElementById('highlights-container');
@@ -1179,17 +1203,25 @@
       parent.classList.remove('hidden');
       container.innerHTML = '';
 
-      hs.forEach((h) => {
+      hs.forEach((h, idx) => {
         const color = h.color === 'brand' ? 'from-brand-700 to-brand-900' : (h.color === 'pink' ? 'from-japa-red to-brand-900' : 'from-japa-green to-brand-700');
         container.innerHTML += `
                 <div class="relative w-[85%] sm:w-[280px] shrink-0 snap-center h-44 rounded-[2rem] overflow-hidden shadow-xl group cursor-pointer" onclick="window.filterCategory('TODAS')">
-                    <div class="absolute inset-0 bg-gradient-to-br ${color}"></div>
-                    <div class="absolute top-4 left-4 bg-white text-brand-700 text-[10px] font-black uppercase px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-md">
+                    <div class="absolute inset-0 bg-gradient-to-br ${color} ${h.image ? 'opacity-90 mix-blend-multiply' : ''}"></div>
+                    <div class="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-50 mix-blend-overlay ${!h.image ? 'hidden' : ''}" style="background-image: url('${h.image || ''}')"></div>
+                    
+                    <div class="absolute top-4 left-4 bg-white text-brand-700 text-[10px] font-black uppercase px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-md z-10">
                         <i data-lucide="${h.icon}" class="w-3.5 h-3.5"></i> ${h.badge}
                     </div>
-                    <div class="absolute bottom-5 left-5 right-5 text-white">
-                        <h3 class="font-display font-bold text-2xl leading-tight mb-1">${h.title}</h3>
-                        <p class="text-[11px] opacity-80">${h.subtitle}</p>
+
+                    ${h.expiry ? `
+                    <div class="absolute top-4 right-4 bg-black/40 backdrop-blur-md text-white border border-white/20 text-[10px] font-black uppercase px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-md z-10">
+                        <i data-lucide="clock" class="w-3.5 h-3.5"></i> <span id="store-high-timer-${idx}">${window.formatTimeRemaining(new Date(h.expiry).getTime() - Date.now())}</span>
+                    </div>` : ''}
+
+                    <div class="absolute bottom-5 left-5 right-5 text-white z-10 pointer-events-none">
+                        <h3 class="font-display font-bold text-2xl leading-tight mb-1 text-shadow-sm">${h.title}</h3>
+                        <p class="text-[11px] opacity-90 text-shadow-sm">${h.subtitle}</p>
                     </div>
                 </div>`;
       });
