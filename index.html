@@ -1369,10 +1369,17 @@
       const pixCheck = document.getElementById('pix-paid-check');
       const pixPaid = payment === 'Pix' ? (pixCheck ? pixCheck.checked : false) : true;
 
+      let deliveryOk = true;
+      if (state.deliveryType === 'Entrega') {
+        const zone = document.getElementById('delivery-zone').value;
+        const address = document.getElementById('client-address').value.trim();
+        deliveryOk = !!(zone && address);
+      }
+
       const formOk = state.cart.length > 0 &&
         document.getElementById('client-name').value.trim() &&
         document.getElementById('client-phone').value.trim().length >= 10 &&
-        payment && pixPaid;
+        payment && pixPaid && deliveryOk;
 
       if (!isOpen) {
         btn.disabled = true;
