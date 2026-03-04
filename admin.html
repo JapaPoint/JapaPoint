@@ -1396,11 +1396,11 @@
             // Calculate subtotal and delivery
             const totalVal = parseFloat(data.total.replace('R$', '').replace(',', '.').trim()) || 0;
             // Delivery zone price extraction fallback
-            let deliveryFee = 0;
-            if (data.address && data.address !== 'Retirada no local' && data.address !== 'Retirada na Loja') {
-                // If we don't have structured subtotal/delivery yet, we might need to assume or check config
-                // For now, let's keep it simple or try to find it in the data
-            }
+            let deliveryFee = data.deliveryFee || 0;
+            let subtotalVal = totalVal - deliveryFee;
+
+            let formattedSubtotal = `R$ ${subtotalVal.toFixed(2).replace('.', ',')}`;
+            let formattedDelivery = `R$ ${deliveryFee.toFixed(2).replace('.', ',')}`;
 
             receipt.innerHTML = `
                 <div style="text-align: center; margin-bottom: 10px; font-family: monospace;">
@@ -1431,10 +1431,10 @@
                 <div style="font-size: 13px; line-height: 1.4; margin-bottom: 15px; width: 100%; box-sizing: border-box;">
                     <p style="margin: 0; font-weight: 900;">Valores:</p>
                     <div style="display: flex; justify-content: space-between; width: 100%;">
-                        <span>Valor do Pedido:</span> <strong>${data.total}</strong>
+                        <span>Valor do Pedido:</span> <strong>${formattedSubtotal}</strong>
                     </div>
                     <div style="display: flex; justify-content: space-between; width: 100%;">
-                        <span>Taxa de Entrega:</span> <strong>R$ 0,00</strong>
+                        <span>Taxa de Entrega:</span> <strong>${formattedDelivery}</strong>
                     </div>
                     <div style="display: flex; justify-content: space-between; width: 100%;">
                         <span>Valor Total:</span> <strong>${data.total}</strong>

@@ -1402,6 +1402,18 @@
 
       let msg = `💜 *PEDIDO - JAPA POINT*\n👤 *Cliente:* ${name}\n💳 *Pagamento:* ${payment}\n🏠 *Morada:* ${addr}\n`;
       msg += `\n*ITENS:*\n` + state.cart.map(i => `- ${i.qty}x ${i.name} (${i.obs})`).join("\n");
+
+      let deliveryFee = 0;
+      if (state.deliveryType === 'Entrega') {
+        const zone = document.getElementById('delivery-zone');
+        if (zone && zone.selectedIndex >= 0) {
+          const opt = zone.options[zone.selectedIndex];
+          if (opt.dataset.price) deliveryFee = parseFloat(opt.dataset.price);
+        }
+      }
+      if (deliveryFee > 0) {
+        msg += `\n🛵 *Taxa de Entrega:* R$ ${deliveryFee.toFixed(2).replace('.', ',')}`;
+      }
       msg += `\n\n💰 *TOTAL: ${totalText}*`;
 
       // Gravando o pedido no Firebase
@@ -1409,7 +1421,7 @@
         if (db) {
           const docRef = await addDoc(collection(db, "pedidos"), {
             clientName: name, phone: phone, paymentMethod: payment, address: addr,
-            deliveryType: state.deliveryType,
+            deliveryType: state.deliveryType, deliveryFee: deliveryFee,
             items: state.cart, total: totalText, status: 'pendente',
             createdAt: new Date().toISOString(),
             msgRaw: msg // Guardamos a mensagem para enviar depois
